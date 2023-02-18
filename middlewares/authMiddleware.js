@@ -29,4 +29,4 @@ const isAmin = asyncHandler(async (req, res, next) => {
     next();
   }
 });
-module.exports = { isAmin, authMiddleware };
+module.exports = { isAmin: isAmin, authMiddleware };

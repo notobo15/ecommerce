@@ -13,7 +13,7 @@ const createProduct = asyncHandler(async (req, res) => {
   }
 });
 const updateProduct = asyncHandler(async (req, res) => {
-  const id = req.params;
+  const { id } = req.params;
   try {
     if (req.body.title) {
       req.body.slug = slugify(req.body.title);
@@ -25,7 +25,8 @@ const updateProduct = asyncHandler(async (req, res) => {
   }
 });
 const deleteProduct = asyncHandler(async (req, res) => {
-  const id = req.params;
+  const { id } = req.params;
+  console.log(id);
   try {
     const product = await Product.findOneAndRemove(id);
     res.json(product);
@@ -44,9 +45,41 @@ const getSingleProduct = asyncHandler(async (req, res) => {
 });
 const getAllProduct = asyncHandler(async (req, res) => {
   try {
-    const findProduct = await Product.find();
-    console.log(findProduct);
-    res.json(findProduct);
+    const queryObj = { ...req.query };
+    const excludeFields = ["page", "sort", "limit", "fields"];
+    excludeFields.forEach((el) => delete queryObj[el]);
+    console.log(queryObj);
+    let queryStr = JSON.stringify(queryObj);
+    queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, (match) => `$${match}`);
+
+    let query = Product.find(JSON.parse(queryStr));
+    //SORTING
+    if (req.query.sort) {
+      const sortby = req.query.split(",").join(" ");
+      query = query.sort(sortby);
+    } else {
+      query = query.sort("-createAt");
+    }
+    //LIMITING FIELDS
+    console.log(req.query);
+    if (req.query.fields) {
+      console.log(req.query.fields);
+      const fields = req.query.split(",").join(" ");
+      query = query.select(fields);
+    } else {
+      query = query.select("-__v");
+    }
+
+    const page = req.query.page;
+    const limit = req.query.limit;
+    const skip = (page - 1) * limit;
+    query = query.skip(skip).limit(limit);
+    if (req.query.page) {
+      const productCount = await Product.countDocuments();
+      if (skip >= productCount) throw new Error("This Page does not exits");
+    }
+    const product = await query;
+    res.json(product);
   } catch (error) {
     throw new Error(error);
   }
